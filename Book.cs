@@ -1,21 +1,83 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace GradeBook
 {
-    public class Book
-    {
-        private List<double> grades;
-        public string Name;
 
-        public Book(string name)
+    public class NamedObject
+    {
+        public NamedObject(string name)
         {
-            grades = new List<double>();
             Name = name;
         }
 
-        public void AddLetterGrade(char grade)
+        public string Name
         {
+            get;
+            set;
+        }
+    }
+
+    public abstract class Book : NamedObject, IBook
+    {
+        protected Book(string name) : base(name)
+        {
+        }
+
+        public abstract void AddGrade(double grade);
+
+        public abstract Statistics GetStatistics();
+    }
+
+    public class DiskBook : Book
+    {
+        public DiskBook(string name) : base(name)
+        {
+        }
+
+        public override void AddGrade(double grade)
+        {
+            using (var writer = File.AppendText($"{Name}.txt"))
+            {
+                writer.WriteLine(grade);
+            }
+        }
+
+        public override Statistics GetStatistics()
+        {
+            
+            var grades = new List<double>();
+            using(var reader = File.OpenText($"{Name}.txt"))
+            {
+                var line =reader.ReadLine();
+                while(line != null)
+                {
+                    var number = double.Parse(line);
+                    grades.Add(number);
+                    line = reader.ReadLine();
+                }
+            }
+
+            var result = new Statistics();
+
+            result.CalcStatistics(grades);
+            return result;
+        }
+    }
+    public class InMemoryBook : Book
+    {
+        private List<double> grades;
+
+
+        public InMemoryBook(string name) : base(name)
+        {
+            grades = new List<double>();
+        }
+
+        public void AddGrade(char grade)
+        {
+            // method overloading C# looks at methods by their signiture this allows for methods with the same name but different input types
             switch (grade)
             {
                 case 'A':
@@ -35,7 +97,7 @@ namespace GradeBook
                     break;
             }
         }
-        public void AddGrade(double grade)
+        public override void AddGrade(double grade)
         {
             if(grade <= 100 && grade >= 0)
             {
@@ -48,45 +110,21 @@ namespace GradeBook
             
         }
 
-        public Statistics GetStatistics()
+        public override Statistics GetStatistics()
         {
             var result = new Statistics();
-            result.Average = 0.0;
-            result.High = double.MinValue;
-            result.Low = double.MaxValue;
 
-            foreach (double grade in grades)
-            {
-                result.Low = Math.Min(grade, result.Low);
-                result.High = Math.Max(grade, result.High);
-
-                result.Average += grade;
-            }
-
-            result.Average /= grades.Count;
-
-            switch (result.Average)
-            {
-                case var d when d >= 90.0:
-                    result.Letter = 'A';
-                    break;
-                case var d when d >= 80.0:
-                    result.Letter = 'B';
-                    break;
-                case var d when d >= 70.0:
-                    result.Letter = 'C';
-                    break;
-                case var d when d >= 60.0:
-                    result.Letter = 'D';
-                    break;
-                default:
-                    result.Letter = 'F';
-                    break;
-            }
-
-
+            result.CalcStatistics(grades);
             return result;
         }
+
+    }
+
+    internal interface IBook
+    {
+        void AddGrade(double grade);
+        Statistics GetStatistics();
+        string Name { get; }
 
     }
 }
